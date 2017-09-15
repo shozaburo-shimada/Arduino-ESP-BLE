@@ -2,9 +2,6 @@
 
 
 
-
-
-
 /* value range of a attribute (characteristic) */
 uint8_t attr_str[] = {0x00};
 
@@ -67,12 +64,23 @@ struct gatts_profile_inst {
 static struct gatts_profile_inst test_profile;
 
 
-EspGatt::EspGatt(){
+EspBLE::EspBLE(){
+    /*
+    //Set default Service UUID
+    uint8_t unique_id[16] = {
+        0x12, 0xad, 0xfe, 0x42,
+        0x87, 0x3c, 0xf9, 0x8f,
+        0x24, 0x42, 0x78, 0x9a,
+        0x6b, 0x56, 0xd5, 0xf8
+    };
 
+    test_profile.service_id.id.uuid.len = 16;
+    memcpy(test_profile.service_id.id.uuid.uuid.uuid128, unique_id, 16);
+    */
 }
 
 
-void EspGatt::init(){
+void EspBLE::init(){
     /* initialize advertising info */
     test_adv_params.adv_int_min        = 0x20;
     test_adv_params.adv_int_max        = 0x40;
@@ -91,7 +99,7 @@ void EspGatt::init(){
     test_profile.chars[CHARACTERISTIC_OFF_ID].char_uuid.uuid.uuid16 = GATTS_CHAR_UUID_TEST_OFF;
     test_profile.chars[CHARACTERISTIC_OFF_ID].perm = ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE;
     test_profile.chars[CHARACTERISTIC_OFF_ID].property = ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_NOTIFY;
-    
+
     esp_err_t ret;
    /* initialize BLE and bluedroid */
     btStart();
@@ -114,10 +122,41 @@ void EspGatt::init(){
     esp_ble_gatts_register_callback(gatts_event_handler);
     esp_ble_gap_register_callback(gap_event_handler);
     /* register profiles */
-    esp_ble_gatts_app_register(CHARACTERISTIC_ON_ID);    
-    
- 
-  
+    esp_ble_gatts_app_register(CHARACTERISTIC_ON_ID);
+
+
+
+}
+
+esp_ble_error_t EspBLE::setServiceUUID(uint16_t uuid16){
+
+    test_profile.service_id.id.uuid.len = ESP_UUID_LEN_16;
+    test_profile.service_id.id.uuid.uuid.uuid16 = uuid16;
+
+    return ARDUINO_ESP_SUCCESS;
+
+}
+
+esp_ble_error_t EspBLE::setServiceUUID(uint8_t *uuid128, uint8_t len){
+
+    if(len == 2 || len == 4 || len == 16){
+        test_profile.service_id.id.uuid.len = len;
+        memcpy(test_profile.service_id.id.uuid.uuid.uuid128, uuid128, len);
+
+        return ARDUINO_ESP_SUCCESS;
+    }
+
+    return ARDUINO_ESP_FAILURE;
+}
+
+esp_ble_error_t EspBLE::setCharUUID(uint8_t *uuid, uint8_t bit){
+  if(bit == 16){
+    return ARDUINO_ESP_SUCCESS;
+  }if(bit == 128){
+    return ARDUINO_ESP_SUCCESS;
+  }else{
+    return ARDUINO_ESP_FAILURE;
+  }
 }
 
 /* this callback will handle process of advertising BLE info */
@@ -175,8 +214,8 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
         printf("REGISTER_APP_EVT, status %d, app_id %d\n", param->reg.status, param->reg.app_id);
         test_profile.service_id.is_primary = true;
         test_profile.service_id.id.inst_id = 0x00;
-        test_profile.service_id.id.uuid.len = ESP_UUID_LEN_16;
-        test_profile.service_id.id.uuid.uuid.uuid16 = GATTS_SERVICE_UUID_TEST_ON;
+        //test_profile.service_id.id.uuid.len = ESP_UUID_LEN_16;
+        //test_profile.service_id.id.uuid.uuid.uuid16 = GATTS_SERVICE_UUID_TEST_ON;
         esp_ble_gatts_create_service(gatts_if, &test_profile.service_id, GATTS_NUM_HANDLE_TEST_ON);
         break;
     /* when central device request info from this device, this event will be invoked and respond */
@@ -241,7 +280,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
         }else if(param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_TEST_OFF){
             test_profile.chars[CHARACTERISTIC_OFF_ID].char_handle = param->add_char.attr_handle;
         }
-        
+
         break;
     }
     case ESP_GATTS_ADD_CHAR_DESCR_EVT:
@@ -299,5 +338,3 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
         }
     }
 }
-
-

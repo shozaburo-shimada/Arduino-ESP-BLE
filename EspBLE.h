@@ -51,11 +51,19 @@ typedef struct {
 static prepare_type_env_t on_prepare_write_env;
 static prepare_type_env_t off_prepare_write_env;
 
+typedef enum {
+    ARDUINO_ESP_FAILURE = 0,
+    ARDUINO_ESP_SUCCESS = 1,
+} esp_ble_error_t;
 
-class EspGatt{
+class EspBLE{
 public:
-    EspGatt();
+    EspBLE();
     void init();
+    //esp_ble_error_t setServiceUUID(uint8_t *, uint8_t);
+    esp_ble_error_t setServiceUUID(uint16_t);
+    esp_ble_error_t setServiceUUID(uint8_t *, uint8_t len);
+    esp_ble_error_t setCharUUID(uint8_t *, uint8_t);
 private:
 
 };
