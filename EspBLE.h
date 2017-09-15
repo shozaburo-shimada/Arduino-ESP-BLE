@@ -25,22 +25,6 @@
 #pragma GCC diagnostic pop
 
 #define LED 4
-#define GATTS_TAG "GATTS_DEMO"
-
-#define GATTS_SERVICE_UUID_TEST_ON   0x00FF
-#define GATTS_CHAR_UUID_TEST_ON      0xAA01
-#define GATTS_CHAR_UUID_TEST_OFF     0xBB01
-#define GATTS_NUM_HANDLE_TEST_ON     8
-
-#define TEST_DEVICE_NAME            "ESP_GATTS_ON_OFF"
-/* maximum value of a characteristic */
-#define GATTS_DEMO_CHAR_VAL_LEN_MAX 0xFF
-
-#define PROFILE_ON_APP_ID 0
-/* characteristic ids 0 and 1 */
-#define CHAR_NUM 2
-#define CHARACTERISTIC_ON_ID    0
-#define CHARACTERISTIC_OFF_ID   1
 
 
 typedef struct {
@@ -62,8 +46,12 @@ public:
     void init();
     //esp_ble_error_t setServiceUUID(uint8_t *, uint8_t);
     esp_ble_error_t setServiceUUID(uint16_t);
-    esp_ble_error_t setServiceUUID(uint8_t *, uint8_t len);
+    esp_ble_error_t setServiceUUID(uint8_t *, uint8_t);
+    esp_ble_error_t setCharUUID(uint16_t);
     esp_ble_error_t setCharUUID(uint8_t *, uint8_t);
+    uint8_t read();
+    uint16_t write(uint8_t);
+    uint16_t available();
 private:
 
 };

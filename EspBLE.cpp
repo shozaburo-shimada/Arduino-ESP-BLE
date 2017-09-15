@@ -1,6 +1,29 @@
 #include "EspBLE.h"
 
+#define GATTS_TAG "GATTS_DEMO"
 
+//#define GATTS_SERVICE_UUID_TEST_ON   0x00FF
+#define GATTS_CHAR_UUID_TEST_ON      0xAA01
+#define GATTS_CHAR_UUID_TEST_OFF     0xBB01
+#define GATTS_NUM_HANDLE_TEST_ON     8
+
+#define TEST_DEVICE_NAME            "ESP32"
+/* maximum value of a characteristic */
+#define GATTS_DEMO_CHAR_VAL_LEN_MAX 0xFF
+
+#define PROFILE_ON_APP_ID 0
+/* characteristic ids 0 and 1 */
+#define CHAR_NUM 2
+#define CHAR1_ID 0
+#define CHAR2_ID 1
+
+/* default UUIDs*/
+const uint8_t CHAR1_UUID[16] = {
+    0x12, 0xad, 0xfe, 0x42,
+    0x87, 0x3c, 0xf9, 0x8f,
+    0x24, 0x42, 0x78, 0x9a,
+    0x6b, 0x56, 0xd5, 0xf8
+};
 
 /* value range of a attribute (characteristic) */
 uint8_t attr_str[] = {0x00};
@@ -77,10 +100,7 @@ EspBLE::EspBLE(){
     test_profile.service_id.id.uuid.len = 16;
     memcpy(test_profile.service_id.id.uuid.uuid.uuid128, unique_id, 16);
     */
-}
 
-
-void EspBLE::init(){
     /* initialize advertising info */
     test_adv_params.adv_int_min        = 0x20;
     test_adv_params.adv_int_max        = 0x40;
@@ -91,14 +111,23 @@ void EspBLE::init(){
     /* initialize profile and characteristic */
     test_profile.gatts_cb = gatts_profile_event_handler;
     test_profile.gatts_if = ESP_GATT_IF_NONE; /* Not get the gatt_if, so initial is ESP_GATT_IF_NONE */
-    test_profile.chars[CHARACTERISTIC_ON_ID].char_uuid.len = ESP_UUID_LEN_16;
-    test_profile.chars[CHARACTERISTIC_ON_ID].char_uuid.uuid.uuid16 = GATTS_CHAR_UUID_TEST_ON;
-    test_profile.chars[CHARACTERISTIC_ON_ID].perm = ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE;
-    test_profile.chars[CHARACTERISTIC_ON_ID].property = ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_NOTIFY;
-    test_profile.chars[CHARACTERISTIC_OFF_ID].char_uuid.len = ESP_UUID_LEN_16;
-    test_profile.chars[CHARACTERISTIC_OFF_ID].char_uuid.uuid.uuid16 = GATTS_CHAR_UUID_TEST_OFF;
-    test_profile.chars[CHARACTERISTIC_OFF_ID].perm = ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE;
-    test_profile.chars[CHARACTERISTIC_OFF_ID].property = ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_NOTIFY;
+    //test_profile.chars[CHAR1_ID].char_uuid.len = ESP_UUID_LEN_16;
+    //test_profile.chars[CHAR1_ID].char_uuid.uuid.uuid16 = GATTS_CHAR_UUID_TEST_ON;
+
+    test_profile.chars[CHAR1_ID].char_uuid.len = ESP_UUID_LEN_128;
+    memcpy(test_profile.chars[CHAR1_ID].char_uuid.uuid.uuid128, CHAR1_UUID, ESP_UUID_LEN_128);
+
+    test_profile.chars[CHAR1_ID].perm = ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE;
+    test_profile.chars[CHAR1_ID].property = ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_NOTIFY;
+    test_profile.chars[CHAR2_ID].char_uuid.len = ESP_UUID_LEN_16;
+    test_profile.chars[CHAR2_ID].char_uuid.uuid.uuid16 = GATTS_CHAR_UUID_TEST_OFF;
+    test_profile.chars[CHAR2_ID].perm = ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE;
+    test_profile.chars[CHAR2_ID].property = ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_NOTIFY;
+
+}
+
+
+void EspBLE::init(){
 
     esp_err_t ret;
    /* initialize BLE and bluedroid */
@@ -122,7 +151,7 @@ void EspBLE::init(){
     esp_ble_gatts_register_callback(gatts_event_handler);
     esp_ble_gap_register_callback(gap_event_handler);
     /* register profiles */
-    esp_ble_gatts_app_register(CHARACTERISTIC_ON_ID);
+    esp_ble_gatts_app_register(CHAR1_ID);
 
 
 
@@ -149,15 +178,40 @@ esp_ble_error_t EspBLE::setServiceUUID(uint8_t *uuid128, uint8_t len){
     return ARDUINO_ESP_FAILURE;
 }
 
-esp_ble_error_t EspBLE::setCharUUID(uint8_t *uuid, uint8_t bit){
-  if(bit == 16){
+esp_ble_error_t EspBLE::setCharUUID(uint16_t uuid16){
+    test_profile.chars[CHAR1_ID].char_uuid.len = ESP_UUID_LEN_16;
+    test_profile.chars[CHAR1_ID].char_uuid.uuid.uuid16 = uuid16;
     return ARDUINO_ESP_SUCCESS;
-  }if(bit == 128){
-    return ARDUINO_ESP_SUCCESS;
-  }else{
-    return ARDUINO_ESP_FAILURE;
-  }
+
 }
+
+esp_ble_error_t EspBLE::setCharUUID(uint8_t *uuid128, uint8_t len){
+
+    if(len == 2 || len == 4 || len == 16){
+        test_profile.chars[CHAR1_ID].char_uuid.len = len;
+        memcpy(test_profile.chars[CHAR1_ID].char_uuid.uuid.uuid128, uuid128, len);
+
+        return ARDUINO_ESP_SUCCESS;
+    }
+
+    return ARDUINO_ESP_FAILURE;
+}
+
+uint8_t EspBLE::read(){
+
+    return 0;
+}
+
+uint16_t EspBLE::write(uint8_t d){
+
+    return 0;
+}
+
+uint16_t EspBLE::available(){
+
+    return 0;
+}
+
 
 /* this callback will handle process of advertising BLE info */
 static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param){
@@ -194,9 +248,9 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
 void example_write_event_env(esp_gatt_if_t gatts_if, prepare_type_env_t *prepare_write_env, esp_ble_gatts_cb_param_t *param){
 //void EspGatt::example_write_event_env(esp_gatt_if_t gatts_if, prepare_type_env_t *prepare_write_env, esp_ble_gatts_cb_param_t *param){
     /* check char handle and set LED */
-    if(test_profile.chars[CHARACTERISTIC_ON_ID].char_handle == param->write.handle){
+    if(test_profile.chars[CHAR1_ID].char_handle == param->write.handle){
         digitalWrite(LED, HIGH);
-    }else if(test_profile.chars[CHARACTERISTIC_OFF_ID].char_handle == param->write.handle){
+    }else if(test_profile.chars[CHAR1_ID].char_handle == param->write.handle){
         digitalWrite(LED, LOW);
     }
     /* send response if any */
@@ -253,20 +307,21 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
     /* start service and add characterstic event */
     case ESP_GATTS_CREATE_EVT:
         printf("status %d,  service_handle %d\n", param->create.status, param->create.service_handle);
-        /* 1 service LED and 2 characteristics ON and OFF */
-        test_profile.service_handle = param->create.service_handle;
-        /* add char ON */
-        esp_ble_gatts_add_char(test_profile.service_handle, &test_profile.chars[CHARACTERISTIC_ON_ID].char_uuid,
-                               ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
-                               ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_NOTIFY,
-                               &gatts_attr_val, NULL);
 
         test_profile.service_handle = param->create.service_handle;
-        /* add char OFF */
-        esp_ble_gatts_add_char(test_profile.service_handle, &test_profile.chars[CHARACTERISTIC_OFF_ID].char_uuid,
+
+        esp_ble_gatts_add_char(test_profile.service_handle, &test_profile.chars[CHAR1_ID].char_uuid,
                                ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
                                ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_NOTIFY,
                                &gatts_attr_val, NULL);
+        /*
+        test_profile.service_handle = param->create.service_handle;
+
+        esp_ble_gatts_add_char(test_profile.service_handle, &test_profile.chars[CHAR2_ID].char_uuid,
+                               ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
+                               ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_NOTIFY,
+                               &gatts_attr_val, NULL);
+        */
         esp_ble_gatts_start_service(test_profile.service_handle);
         break;
     /* add characteristic descriptor for 2 char ON and OFF.
@@ -276,9 +331,9 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
                 param->add_char.status, param->add_char.attr_handle, param->add_char.service_handle);
         /* store char handle */
         if(param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_TEST_ON){
-            test_profile.chars[CHARACTERISTIC_ON_ID].char_handle = param->add_char.attr_handle;
+            test_profile.chars[CHAR1_ID].char_handle = param->add_char.attr_handle;
         }else if(param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_TEST_OFF){
-            test_profile.chars[CHARACTERISTIC_OFF_ID].char_handle = param->add_char.attr_handle;
+            test_profile.chars[CHAR2_ID].char_handle = param->add_char.attr_handle;
         }
 
         break;
