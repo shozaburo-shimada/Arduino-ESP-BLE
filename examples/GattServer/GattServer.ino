@@ -33,6 +33,16 @@ void setup(){
 
 
 }
+uint8_t d = 0;
+uint8_t buff[2] = {0, 0}; 
 void loop(){
+  //esp.write(d);
+  for(int i = 0; i < sizeof(buff); i++){
+    buff[i] = d;
+  }
+  
+  esp.write(buff, sizeof(buff));
+  d++;
+  delay(1000);
   
 }

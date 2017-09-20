@@ -86,6 +86,15 @@ struct gatts_profile_inst {
 /* One gatt-based profile one app_id and one gatts_if, this array will store the gatts_if returned by ESP_GATTS_REG_EVT */
 static struct gatts_profile_inst test_profile;
 
+#define RECV_BUFF_SIZE 64
+#define SEND_BUFF_SIZE 64
+static uint8_t _recv_buffer[RECV_BUFF_SIZE];
+static uint8_t _send_buffer[SEND_BUFF_SIZE];
+static uint8_t _recv_buffer_header = 0;
+static uint8_t _recv_buffer_tail = 0;
+static uint8_t _send_buffer_header = 0;
+static uint8_t _send_buffer_tail = 0;
+esp_gatt_if_t gatts_if_for_indicate = ESP_GATT_IF_NONE;
 
 EspBLE::EspBLE(){
     /*
@@ -204,13 +213,29 @@ uint8_t EspBLE::read(){
 
 uint16_t EspBLE::write(uint8_t d){
 
-    return 0;
+    this->write(&d, 1);
+    return sizeof(d);
+}
+
+uint16_t EspBLE::write(uint8_t *array, uint8_t len){
+
+    if(gatts_if_for_indicate == ESP_GATT_IF_NONE){
+        printf("cannot indicate because gatts_if_for_indicate is NONE");
+        return ARDUINO_ESP_FAILURE;
+    }
+
+    printf("indicate\n");
+    uint16_t attr_handle = 0x002a; //why 0x002a?
+    esp_ble_gatts_send_indicate(gatts_if_for_indicate, 0, attr_handle, len, array, false);
+    return len;
 }
 
 uint16_t EspBLE::available(){
 
     return 0;
 }
+
+
 
 
 /* this callback will handle process of advertising BLE info */
@@ -244,6 +269,8 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
         break;
     }
 }
+
+#define LED 4
 
 void example_write_event_env(esp_gatt_if_t gatts_if, prepare_type_env_t *prepare_write_env, esp_ble_gatts_cb_param_t *param){
 //void EspGatt::example_write_event_env(esp_gatt_if_t gatts_if, prepare_type_env_t *prepare_write_env, esp_ble_gatts_cb_param_t *param){
@@ -345,6 +372,9 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
     /* when disconneting, send advertising information again */
     case ESP_GATTS_DISCONNECT_EVT:
         esp_ble_gap_start_advertising(&test_adv_params);
+        //Notify
+        gatts_if_for_indicate = ESP_GATT_IF_NONE;
+        printf("set NONE for gatts_if_for_indicate \n");
         break;
     /* When gatt client connect, the event comes */
     case ESP_GATTS_CONNECT_EVT: {
@@ -364,6 +394,11 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
         test_profile.conn_id = param->connect.conn_id;
         //start sent the update connection parameters to the peer device.
         esp_ble_gap_update_conn_params(&conn_params);
+
+        //Notify
+        gatts_if_for_indicate = gatts_if;
+        printf("set %d for gatts_if_for_indicate \n", gatts_if);
+
         break;
     }
     default:

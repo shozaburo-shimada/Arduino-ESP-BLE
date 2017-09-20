@@ -24,9 +24,6 @@
 
 #pragma GCC diagnostic pop
 
-#define LED 4
-
-
 typedef struct {
     uint8_t                 *prepare_buf;
     int                     prepare_len;
@@ -51,6 +48,7 @@ public:
     esp_ble_error_t setCharUUID(uint8_t *, uint8_t);
     uint8_t read();
     uint16_t write(uint8_t);
+    uint16_t write(uint8_t *, uint8_t);
     uint16_t available();
 private:
 
