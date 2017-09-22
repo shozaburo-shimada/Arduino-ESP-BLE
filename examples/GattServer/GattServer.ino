@@ -23,8 +23,8 @@ const uint8_t CHAR_UUID[16] = {
 
 void setup(){
     Serial.begin(115200);
-    pinMode(LED, OUTPUT);
-    digitalWrite(LED, LOW);
+    //pinMode(LED, OUTPUT);
+    //digitalWrite(LED, LOW);
     //esp.setServiceUUID(SERVICE_UUID);
     esp.setServiceUUID(SERVICE_UUID, sizeof(SERVICE_UUID));
     //esp.setCharUUID(CHAR_UUID);
@@ -43,6 +43,17 @@ void loop(){
   
   esp.write(buff, sizeof(buff));
   d++;
+  
+  uint8_t c;
+  uint8_t len;
+  if(len = esp.available()){
+    for(int i = 0; i < len; i++){
+      c = esp.read();
+      Serial.print(c);
+      Serial.print(" ");
+    }
+  }
+  Serial.println();
   delay(1000);
   
 }
