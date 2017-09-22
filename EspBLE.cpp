@@ -1,4 +1,5 @@
 #include "EspBLE.h"
+//#include "Arduino.h"
 
 #define GATTS_TAG "GATTS_DEMO"
 
@@ -86,14 +87,14 @@ struct gatts_profile_inst {
 /* One gatt-based profile one app_id and one gatts_if, this array will store the gatts_if returned by ESP_GATTS_REG_EVT */
 static struct gatts_profile_inst test_profile;
 
-#define RECV_BUFF_SIZE 64
-#define SEND_BUFF_SIZE 64
-static uint8_t _recv_buffer[RECV_BUFF_SIZE];
-static uint8_t _send_buffer[SEND_BUFF_SIZE];
-static uint8_t _recv_buffer_header = 0;
+#define _RECV_BUFF_SIZE 64
+//#define _SEND_BUFF_SIZE 64
+static uint8_t _recv_buffer[_RECV_BUFF_SIZE];
+//static uint8_t _send_buffer[_SEND_BUFF_SIZE];
+static uint8_t _recv_buffer_head = 0;
 static uint8_t _recv_buffer_tail = 0;
-static uint8_t _send_buffer_header = 0;
-static uint8_t _send_buffer_tail = 0;
+//static uint8_t _send_buffer_head = 0;
+//static uint8_t _send_buffer_tail = 0;
 esp_gatt_if_t gatts_if_for_indicate = ESP_GATT_IF_NONE;
 
 EspBLE::EspBLE(){
@@ -207,13 +208,17 @@ esp_ble_error_t EspBLE::setCharUUID(uint8_t *uuid128, uint8_t len){
 }
 
 uint8_t EspBLE::read(){
+    if(_recv_buffer_head == _recv_buffer_tail)
+        return ARDUINO_ESP_FAILURE;
 
-    return 0;
+    uint8_t d = _recv_buffer[_recv_buffer_head];
+    _recv_buffer_head = (_recv_buffer_head + 1) % _RECV_BUFF_SIZE;
+    return d;
 }
 
 uint16_t EspBLE::write(uint8_t d){
 
-    this->write(&d, 1);
+    this->write(&d, sizeof(d));
     return sizeof(d);
 }
 
@@ -224,7 +229,6 @@ uint16_t EspBLE::write(uint8_t *array, uint8_t len){
         return ARDUINO_ESP_FAILURE;
     }
 
-    printf("indicate\n");
     uint16_t attr_handle = 0x002a; //why 0x002a?
     esp_ble_gatts_send_indicate(gatts_if_for_indicate, 0, attr_handle, len, array, false);
     return len;
@@ -232,10 +236,8 @@ uint16_t EspBLE::write(uint8_t *array, uint8_t len){
 
 uint16_t EspBLE::available(){
 
-    return 0;
+    return (_recv_buffer_tail + _RECV_BUFF_SIZE - _recv_buffer_head) % _RECV_BUFF_SIZE;
 }
-
-
 
 
 /* this callback will handle process of advertising BLE info */
@@ -277,7 +279,7 @@ void example_write_event_env(esp_gatt_if_t gatts_if, prepare_type_env_t *prepare
     /* check char handle and set LED */
     if(test_profile.chars[CHAR1_ID].char_handle == param->write.handle){
         digitalWrite(LED, HIGH);
-    }else if(test_profile.chars[CHAR1_ID].char_handle == param->write.handle){
+    }else if(test_profile.chars[CHAR2_ID].char_handle == param->write.handle){
         digitalWrite(LED, LOW);
     }
     /* send response if any */
@@ -328,7 +330,21 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
     case ESP_GATTS_WRITE_EVT: {
         printf("ESP_GATTS_WRITE_EVT, conn_id %d, trans_id %d, handle %d\n", param->write.conn_id, param->write.trans_id, param->write.handle);
         printf("value len %d, value %08x\n", param->write.len, *(uint8_t *)param->write.value);
+
+        for(int i = 0; i < param->write.len; i++){
+                uint8_t next = (_recv_buffer_tail + 1) % _RECV_BUFF_SIZE;
+                if(next != _recv_buffer_head){
+                    _recv_buffer[_recv_buffer_tail] = *(uint8_t *)(param->write.value + i);
+                    _recv_buffer_tail = next;
+                }else{
+                    //Buffer Over flow
+                    printf("Recieve Buffer Overflow \d");
+                    return ARDUINO_ESP_FAILURE;
+                }
+        }
+
         example_write_event_env(gatts_if, &on_prepare_write_env, param);
+
         break;
     }
     /* start service and add characterstic event */
