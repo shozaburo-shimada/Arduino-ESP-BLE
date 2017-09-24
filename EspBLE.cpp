@@ -88,11 +88,13 @@ struct gatts_profile_inst {
 static struct gatts_profile_inst test_profile;
 
 #define _RECV_BUFF_SIZE 64
-//#define _SEND_BUFF_SIZE 64
+#define _ATTR_SIZE 64
 static uint8_t _recv_buffer[_RECV_BUFF_SIZE];
-//static uint8_t _send_buffer[_SEND_BUFF_SIZE];
 static uint8_t _recv_buffer_head = 0;
 static uint8_t _recv_buffer_tail = 0;
+
+static uint8_t _attr_data[_ATTR_SIZE];
+static uint8_t _attr_len = 0;
 //static uint8_t _send_buffer_head = 0;
 //static uint8_t _send_buffer_tail = 0;
 esp_gatt_if_t gatts_if_for_indicate = ESP_GATT_IF_NONE;
@@ -229,6 +231,13 @@ uint16_t EspBLE::write(uint8_t *array, uint8_t len){
         return ARDUINO_ESP_FAILURE;
     }
 
+    if(len >= _ATTR_SIZE){
+        printf("Data size is too big");
+        return ARDUINO_ESP_FAILURE;
+    }
+    _attr_len = len;
+    memcpy(_attr_data, array, len);
+
     uint16_t attr_handle = 0x002a; //why 0x002a?
     esp_ble_gatts_send_indicate(gatts_if_for_indicate, 0, attr_handle, len, array, false);
     return len;
@@ -307,6 +316,10 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
         esp_gatt_rsp_t rsp;
         memset(&rsp, 0, sizeof(esp_gatt_rsp_t));
         rsp.attr_value.handle = param->read.handle;
+
+        memcpy(rsp.attr_value.value, _attr_data, _attr_len);
+        rsp.attr_value.len = _attr_len;
+        /*
         rsp.attr_value.len = 14;
         rsp.attr_value.value[0] = 105;
         rsp.attr_value.value[1] = 111;
@@ -322,6 +335,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
         rsp.attr_value.value[11] = 99;
         rsp.attr_value.value[12] = 111;
         rsp.attr_value.value[13] = 109;
+        */
         esp_ble_gatts_send_response(gatts_if, param->read.conn_id, param->read.trans_id,
                                     ESP_GATT_OK, &rsp);
         break;
@@ -342,6 +356,10 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
                     return ARDUINO_ESP_FAILURE;
                 }
         }
+
+        //For Read request
+        _attr_len = param->write.len;
+        memcpy(_attr_data, param->write.value, param->write.len);
 
         example_write_event_env(gatts_if, &on_prepare_write_env, param);
 

@@ -52,8 +52,9 @@ void loop(){
       Serial.print(c);
       Serial.print(" ");
     }
+    Serial.println();    
   }
-  Serial.println();
+
   delay(1000);
   
 }
