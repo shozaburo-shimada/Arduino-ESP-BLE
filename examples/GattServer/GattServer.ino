@@ -30,17 +30,21 @@ uint8_t buff[2] = {0, 0};
 void loop(){
 
   //Send Data to Client (Notify Request)
-  Serial.print("Notify Request: ");
-  for(int i = 0; i < sizeof(buff); i++){
-    buff[i] = d;
-    Serial.print(d);
-    Serial.print(" ");
-  }
-  Serial.println();
-  
-  esp.write(buff, sizeof(buff));
-  d++;
+  if(esp.write(buff, sizeof(buff))){
+    Serial.print("Notify Request: ");
+    Serial.print(buff[1]);
+    Serial.println(buff[0]);
+     
+    //Set Next data
+    d++;
+    for(int i = 0; i < sizeof(buff); i++){
+      buff[i] = d;
+    }
 
+  }else{
+    Serial.println("Not Connected");
+  }
+  
   //Receive Data from Client
   uint8_t c;
   uint8_t len;
