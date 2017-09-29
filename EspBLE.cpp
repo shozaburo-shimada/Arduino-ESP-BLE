@@ -1,5 +1,12 @@
 #include "EspBLE.h"
-//#include "Arduino.h"
+
+#define NODEBUG
+
+#ifdef NODEBUG
+    #define DPRINT(...) NULL
+#else
+    #define DPRINT(...) printf(__VA_ARGS__);
+#endif
 
 #define GATTS_TAG "GATTS_DEMO"
 
@@ -95,8 +102,6 @@ static uint8_t _recv_buffer_tail = 0;
 
 static uint8_t _attr_data[_ATTR_SIZE];
 static uint8_t _attr_len = 0;
-//static uint8_t _send_buffer_head = 0;
-//static uint8_t _send_buffer_tail = 0;
 esp_gatt_if_t gatts_if_for_indicate = ESP_GATT_IF_NONE;
 
 EspBLE::EspBLE(){
@@ -146,12 +151,12 @@ void EspBLE::init(){
     btStart();
     ret = esp_bluedroid_init();
     if (ret) {
-        printf("%s init bluetooth failed\n", __func__);
+        DPRINT("%s init bluetooth failed\n", __func__);
         return;
     }
     ret = esp_bluedroid_enable();
     if (ret) {
-        printf("%s enable bluetooth failed\n", __func__);
+        DPRINT("%s enable bluetooth failed\n", __func__);
         return;
     }
     /* set BLE name and broadcast advertising info
@@ -227,12 +232,12 @@ uint16_t EspBLE::write(uint8_t d){
 uint16_t EspBLE::write(uint8_t *array, uint8_t len){
 
     if(gatts_if_for_indicate == ESP_GATT_IF_NONE){
-        printf("cannot indicate because gatts_if_for_indicate is NONE");
+        DPRINT("cannot indicate because gatts_if_for_indicate is NONE\n");
         return ARDUINO_ESP_FAILURE;
     }
 
     if(len >= _ATTR_SIZE){
-        printf("Data size is too big");
+        DPRINT("Data size is too big\n");
         return ARDUINO_ESP_FAILURE;
     }
     _attr_len = len;
@@ -265,15 +270,15 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
     case ESP_GAP_BLE_ADV_START_COMPLETE_EVT:
         //advertising start complete event to indicate advertising start successfully or failed
         if (param->adv_start_cmpl.status != ESP_BT_STATUS_SUCCESS) {
-            Serial.println("Advertising start failed\n");
+            DPRINT("Advertising start failed\n");
         }
         break;
     case ESP_GAP_BLE_ADV_STOP_COMPLETE_EVT:
         if (param->adv_stop_cmpl.status != ESP_BT_STATUS_SUCCESS) {
-            Serial.println("Advertising stop failed\n");
+            DPRINT("Advertising stop failed\n");
         }
         else {
-            Serial.println("Stop adv successfully\n");
+            DPRINT("Stop adv successfully\n");
         }
         break;
     default:
@@ -303,7 +308,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
     switch (event) {
     /* create service event */
     case ESP_GATTS_REG_EVT:
-        printf("REGISTER_APP_EVT, status %d, app_id %d\n", param->reg.status, param->reg.app_id);
+        DPRINT("REGISTER_APP_EVT, status %d, app_id %d\n", param->reg.status, param->reg.app_id);
         test_profile.service_id.is_primary = true;
         test_profile.service_id.id.inst_id = 0x00;
         //test_profile.service_id.id.uuid.len = ESP_UUID_LEN_16;
@@ -312,7 +317,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
         break;
     /* when central device request info from this device, this event will be invoked and respond */
     case ESP_GATTS_READ_EVT: {
-        printf("ESP_GATTS_READ_EVT, conn_id %d, trans_id %d, handle %d\n", param->read.conn_id, param->read.trans_id, param->read.handle);
+        DPRINT("ESP_GATTS_READ_EVT, conn_id %d, trans_id %d, handle %d\n", param->read.conn_id, param->read.trans_id, param->read.handle);
         esp_gatt_rsp_t rsp;
         memset(&rsp, 0, sizeof(esp_gatt_rsp_t));
         rsp.attr_value.handle = param->read.handle;
@@ -342,8 +347,8 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
     }
     /* when central device send data to this device, this event will be invoked */
     case ESP_GATTS_WRITE_EVT: {
-        printf("ESP_GATTS_WRITE_EVT, conn_id %d, trans_id %d, handle %d\n", param->write.conn_id, param->write.trans_id, param->write.handle);
-        printf("value len %d, value %08x\n", param->write.len, *(uint8_t *)param->write.value);
+        DPRINT("ESP_GATTS_WRITE_EVT, conn_id %d, trans_id %d, handle %d\n", param->write.conn_id, param->write.trans_id, param->write.handle);
+        DPRINT("value len %d, value %08x\n", param->write.len, *(uint8_t *)param->write.value);
 
         for(int i = 0; i < param->write.len; i++){
                 uint8_t next = (_recv_buffer_tail + 1) % _RECV_BUFF_SIZE;
@@ -352,7 +357,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
                     _recv_buffer_tail = next;
                 }else{
                     //Buffer Over flow
-                    printf("Recieve Buffer Overflow \d");
+                    DPRINT("Recieve Buffer Overflow \n");
                     return ARDUINO_ESP_FAILURE;
                 }
         }
@@ -367,7 +372,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
     }
     /* start service and add characterstic event */
     case ESP_GATTS_CREATE_EVT:
-        printf("status %d,  service_handle %d\n", param->create.status, param->create.service_handle);
+        DPRINT("status %d,  service_handle %d\n", param->create.status, param->create.service_handle);
 
         test_profile.service_handle = param->create.service_handle;
 
@@ -388,7 +393,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
     /* add characteristic descriptor for 2 char ON and OFF.
     when it's done, a callback event BTA_GATTS_ADD_DESCR_EVT is called */
     case ESP_GATTS_ADD_CHAR_EVT: {
-        printf("ADD_CHAR_EVT, status %d,  attr_handle %d, service_handle %d\n",
+        DPRINT("ADD_CHAR_EVT, status %d,  attr_handle %d, service_handle %d\n",
                 param->add_char.status, param->add_char.attr_handle, param->add_char.service_handle);
         /* store char handle */
         if(param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_TEST_ON){
@@ -400,7 +405,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
         break;
     }
     case ESP_GATTS_ADD_CHAR_DESCR_EVT:
-        printf("ESP_GATTS_ADD_CHAR_DESCR_EVT, status %d, attr_handle %d, service_handle %d\n",
+        DPRINT("ESP_GATTS_ADD_CHAR_DESCR_EVT, status %d, attr_handle %d, service_handle %d\n",
                  param->add_char.status, param->add_char.attr_handle, param->add_char.service_handle);
         break;
     /* when disconneting, send advertising information again */
@@ -408,11 +413,11 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
         esp_ble_gap_start_advertising(&test_adv_params);
         //Notify
         gatts_if_for_indicate = ESP_GATT_IF_NONE;
-        printf("set NONE for gatts_if_for_indicate \n");
+        DPRINT("set NONE for gatts_if_for_indicate \n");
         break;
     /* When gatt client connect, the event comes */
     case ESP_GATTS_CONNECT_EVT: {
-        printf("ESP_GATTS_CONNECT_EVT\n");
+        DPRINT("ESP_GATTS_CONNECT_EVT\n");
         esp_ble_conn_update_params_t conn_params = {0};
         memcpy(conn_params.bda, param->connect.remote_bda, sizeof(esp_bd_addr_t));
         /* For the IOS system, please reference the apple official documents about the ble connection parameters restrictions. */
@@ -420,7 +425,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
         conn_params.max_int = 0x50;    // max_int = 0x50*1.25ms = 100ms
         conn_params.min_int = 0x30;    // min_int = 0x30*1.25ms = 60ms
         conn_params.timeout = 1000;    // timeout = 1000*10ms = 10000ms
-        printf("ESP_GATTS_CONNECT_EVT, conn_id %d, remote %02x:%02x:%02x:%02x:%02x:%02x:, is_conn %d\n",
+        DPRINT("ESP_GATTS_CONNECT_EVT, conn_id %d, remote %02x:%02x:%02x:%02x:%02x:%02x:, is_conn %d\n",
                  param->connect.conn_id,
                  param->connect.remote_bda[0], param->connect.remote_bda[1], param->connect.remote_bda[2],
                  param->connect.remote_bda[3], param->connect.remote_bda[4], param->connect.remote_bda[5],
@@ -431,7 +436,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
 
         //Notify
         gatts_if_for_indicate = gatts_if;
-        printf("set %d for gatts_if_for_indicate \n", gatts_if);
+        DPRINT("set %d for gatts_if_for_indicate \n", gatts_if);
 
         break;
     }
@@ -447,7 +452,7 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
         if (param->reg.status == ESP_GATT_OK) {
             test_profile.gatts_if = gatts_if;
         } else {
-            printf("Reg app failed, app_id %04x, status %d\n",
+            DPRINT("Reg app failed, app_id %04x, status %d\n",
                     param->reg.app_id,
                     param->reg.status);
             return;
